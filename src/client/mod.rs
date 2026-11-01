@@ -1,6 +1,7 @@
 pub mod api;
 pub mod api_trait;
 pub mod auth;
+pub mod browser_login;
 pub mod endpoints;
 pub mod error;
 pub mod headers;
