@@ -1,40 +1,28 @@
 use clap::Parser;
 
-use cloud139::cli::app::{Cli, Commands};
-use cloud139::client::ClientError;
+use cloud139::cli::app::Cli;
 use cloud139::error;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // 无参数启动（双击 exe 或直接执行 cloud139）时进入交互模式。
+    if std::env::args_os().len() == 1 {
+        if let Err(err) = cloud139::cli::repl::run().await {
+            error!("{}", err);
+            std::process::exit(cloud139::cli::runner::exit_code(&err));
+        }
+        return Ok(());
+    }
+
     let cli = Cli::parse();
     if let Some(path) = cli.config.clone() {
         cloud139::config::set_config_override(path);
     }
     cloud139::utils::logger::init_verbose(&cli.verbose);
-    let result = match cli.command {
-        Commands::Login(args) => cloud139::commands::login::execute(args).await,
-        Commands::Ls(args) => cloud139::commands::list::execute(args).await,
-        Commands::Upload(args) => cloud139::commands::upload::execute(args).await,
-        Commands::Download(args) => cloud139::commands::download::execute(args).await,
-        Commands::Rm(args) => cloud139::commands::delete::execute(args).await,
-        Commands::Mkdir(args) => cloud139::commands::mkdir::execute(args).await,
-        Commands::Mv(args) => cloud139::commands::mv::execute(args).await,
-        Commands::Cp(args) => cloud139::commands::cp::execute(args).await,
-        Commands::Rename(args) => cloud139::commands::rename::execute(args).await,
-        Commands::Sync(args) => cloud139::commands::sync::execute(args).await,
-    };
 
-    if let Err(err) = result {
-        if let Some(exit) = err.downcast_ref::<cloud139::commands::CommandExit>() {
-            error!("{}", exit);
-            std::process::exit(exit.code());
-        } else if let Some(client_err) = err.downcast_ref::<ClientError>() {
-            error!("{}", client_err);
-            std::process::exit(1);
-        } else {
-            error!("{}", err);
-            std::process::exit(1);
-        }
+    if let Err(err) = cloud139::cli::runner::run(cli).await {
+        error!("{}", err);
+        std::process::exit(cloud139::cli::runner::exit_code(&err));
     }
 
     Ok(())
